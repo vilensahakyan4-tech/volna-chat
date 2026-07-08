@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#090b10">
+  <title>VOLNA — случайный видеочат</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="grain"></div>
+  <header>
+    <a class="logo" href="#" aria-label="Volna"><span>V</span> VOLNA</a>
+    <div class="online"><i></i><strong id="onlineCount">1 284</strong> онлайн</div>
+    <button class="ghost" id="rulesBtn">Правила</button>
+  </header>
+
+  <main>
+    <section class="intro" id="intro">
+      <div class="eyebrow">СЛУЧАЙНЫЕ ВСТРЕЧИ · ЖИВЫЕ РАЗГОВОРЫ</div>
+      <h1>Весь мир —<br><em>в одном клике.</em></h1>
+      <p>Включай камеру, и мы найдём тебе случайного собеседника. Без регистрации. Без анкет. Только настоящий разговор.</p>
+      <button class="primary" id="startBtn"><span>Начать разговор</span><b>↗</b></button>
+      <div class="privacy"><span>●</span> Разрешение на камеру понадобится только после нажатия</div>
+    </section>
+
+    <section class="chat hidden" id="chat">
+      <div class="stage">
+        <div class="remote-wrap">
+          <video id="remoteVideo" autoplay playsinline></video>
+          <div class="searching" id="searching">
+            <div class="radar"><span></span></div>
+            <h2>Ищем собеседника</h2>
+            <p>Это займёт всего пару секунд…</p>
+          </div>
+          <div class="status-pill"><i></i><span id="statusText">ПОИСК</span></div>
+        </div>
+        <div class="local-wrap"><video id="localVideo" autoplay muted playsinline></video><span>ВЫ</span></div>
+      </div>
+
+      <aside class="panel">
+        <div class="panel-head"><div><small>ЧАТ</small><h3 id="chatTitle">Новый разговор</h3></div><button id="reportBtn" title="Пожаловаться">···</button></div>
+        <div class="messages" id="messages"><div class="system-msg">Будьте вежливы. Не делитесь личными данными.</div></div>
+        <form id="messageForm"><input id="messageInput" placeholder="Написать сообщение…" maxlength="300" autocomplete="off"><button>↑</button></form>
+      </aside>
+
+      <div class="controls">
+        <button class="control" id="micBtn" title="Микрофон">⌁<span>Микрофон</span></button>
+        <button class="next" id="nextBtn"><span>Следующий</span><b>→</b></button>
+        <button class="control" id="camBtn" title="Камера">◉<span>Камера</span></button>
+        <button class="control danger" id="stopBtn" title="Завершить">×<span>Стоп</span></button>
+      </div>
+    </section>
+  </main>
+
+  <footer><span>18+ · Общаясь, вы принимаете правила сервиса</span><span>© 2026 VOLNA</span></footer>
+
+  <dialog id="rulesDialog"><button class="close" id="closeRules">×</button><div class="eyebrow">БЕЗОПАСНОСТЬ</div><h2>Уважайте собеседника</h2><p>Сервис предназначен только для совершеннолетних. Запрещены угрозы, травля, обнажённый контент и незаконные материалы.</p><button class="primary" id="acceptRules">Понятно</button></dialog>
+  <div class="toast" id="toast"></div>
+  <script src="app.js"></script>
+</body>
+</html>
