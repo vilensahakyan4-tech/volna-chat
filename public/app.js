@@ -14,7 +14,16 @@ let stopped = false;
 const rtcConfig = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:global.stun.twilio.com:3478' }
+    { urls: 'stun:global.stun.twilio.com:3478' },
+    {
+      urls: [
+        'turn:openrelay.metered.ca:80',
+        'turn:openrelay.metered.ca:443',
+        'turn:openrelay.metered.ca:443?transport=tcp'
+      ],
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    }
   ]
 };
 
@@ -68,7 +77,7 @@ function setLive() {
 }
 
 function setConnectionProblem() {
-  updateOverlay('Не удалось соединить видео', 'Попробуйте “Следующий” или откройте сайт на одной Wi‑Fi сети.');
+  updateOverlay('Не удалось соединить видео', 'Попробуйте “Следующий”. Если не поможет — смените Wi‑Fi/мобильную сеть.');
   $('statusText').textContent = 'НЕТ СВЯЗИ';
   $('chatTitle').textContent = 'Видео не соединилось';
 }
