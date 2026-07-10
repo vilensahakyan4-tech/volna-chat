@@ -6,20 +6,22 @@ let pc;
 let peerId;
 let dataChannel;
 let pollTimer;
+let connectionWatchdog;
 let pendingCandidates = [];
 let micOn = true;
 let camOn = true;
 let stopped = false;
 
 const rtcConfig = {
+  iceTransportPolicy: 'relay',
   iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:global.stun.twilio.com:3478' },
     {
       urls: [
         'turn:openrelay.metered.ca:80',
+        'turn:openrelay.metered.ca:80?transport=tcp',
         'turn:openrelay.metered.ca:443',
-        'turn:openrelay.metered.ca:443?transport=tcp'
+        'turn:openrelay.metered.ca:443?transport=tcp',
+        'turns:openrelay.metered.ca:443?transport=tcp'
       ],
       username: 'openrelayproject',
       credential: 'openrelayproject'
@@ -65,19 +67,24 @@ function setSearching() {
 }
 
 function setConnecting() {
-  updateOverlay('Собеседник найден', 'Соединяем видео и звук…');
+  updateOverlay('Собеседник найден', 'Соединяем видео и звук через релей…');
   $('statusText').textContent = 'СОЕДИНЯЕМ';
   $('chatTitle').textContent = 'Собеседник найден';
+  clearTimeout(connectionWatchdog);
+  connectionWatchdog = setTimeout(() => {
+    if (pc && pc.connectionState !== 'connected') setConnectionProblem();
+  }, 15000);
 }
 
 function setLive() {
+  clearTimeout(connectionWatchdog);
   $('searching').classList.add('hidden');
   $('statusText').textContent = 'В ЭФИРЕ';
   $('chatTitle').textContent = 'Можно говорить';
 }
 
 function setConnectionProblem() {
-  updateOverlay('Не удалось соединить видео', 'Попробуйте “Следующий”. Если не поможет — смените Wi‑Fi/мобильную сеть.');
+  updateOverlay('Видео не пробилось', 'Нажмите “Следующий” или обновите страницу на двух устройствах.');
   $('statusText').textContent = 'НЕТ СВЯЗИ';
   $('chatTitle').textContent = 'Видео не соединилось';
 }
@@ -193,6 +200,7 @@ function signal(signalBody) {
 }
 
 function closePeer() {
+  clearTimeout(connectionWatchdog);
   if (pc) pc.close();
   pc = null;
   dataChannel = null;
