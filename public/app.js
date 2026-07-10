@@ -11,21 +11,11 @@ let pendingCandidates = [];
 let micOn = true;
 let camOn = true;
 let stopped = false;
-
-const rtcConfig = {
-  iceTransportPolicy: 'relay',
+let rtcConfig = {
+  iceTransportPolicy: 'all',
   iceServers: [
-    {
-      urls: [
-        'turn:openrelay.metered.ca:80',
-        'turn:openrelay.metered.ca:80?transport=tcp',
-        'turn:openrelay.metered.ca:443',
-        'turn:openrelay.metered.ca:443?transport=tcp',
-        'turns:openrelay.metered.ca:443?transport=tcp'
-      ],
-      username: 'openrelayproject',
-      credential: 'openrelayproject'
-    }
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:global.stun.twilio.com:3478' }
   ]
 };
 
@@ -36,6 +26,13 @@ async function api(path, body) {
   const res = await fetch(path, options);
   if (!res.ok) throw new Error(`API ${res.status}`);
   return res.json();
+}
+
+async function loadIceConfig() {
+  try {
+    const config = await api('/api/ice-config');
+    if (config?.iceServers?.length) rtcConfig = config;
+  } catch (e) {}
 }
 
 function toast(text) {
@@ -100,6 +97,7 @@ async function start() {
     $('chat').classList.remove('hidden');
     stopped = false;
     setSearching();
+    await loadIceConfig();
     await api('/api/join', { id });
     poll();
   } catch (e) {
