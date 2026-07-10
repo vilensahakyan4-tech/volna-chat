@@ -42,10 +42,12 @@ async function createMeteredRoom(roomName) {
     body: JSON.stringify({
       roomName,
       privacy: 'public',
+      autoJoin: true,
       enableChat: true,
       enableScreenSharing: false,
       joinVideoOn: true,
       joinAudioOn: true,
+      showInviteBox: false,
       ejectAfterElapsedTimeInSec: 1800,
       endMeetingAfterNoActivityInSec: 60,
       deleteOnExp: true,
