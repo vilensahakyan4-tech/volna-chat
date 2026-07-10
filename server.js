@@ -8,6 +8,8 @@ const PUBLIC = path.join(__dirname, 'public');
 const clients = new Map();
 let waiting = [];
 const ACTIVE_WINDOW_MS = 12000;
+let cachedIceConfig = null;
+let cachedIceConfigAt = 0;
 
 function isActive(id) {
   const client = clients.get(id);
@@ -66,6 +68,58 @@ function json(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
+async function getIceConfig() {
+  const fallback = {
+    iceTransportPolicy: 'all',
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:global.stun.twilio.com:3478' }
+    ]
+  };
+
+  if (cachedIceConfig && Date.now() - cachedIceConfigAt < 5 * 60 * 1000) return cachedIceConfig;
+
+  const meteredUrl = process.env.METERED_TURN_API_URL || (
+    process.env.METERED_APP_NAME && process.env.METERED_API_KEY
+      ? `https://${process.env.METERED_APP_NAME}.metered.live/api/v1/turn/credentials?apiKey=${encodeURIComponent(process.env.METERED_API_KEY)}`
+      : ''
+  );
+
+  if (meteredUrl) {
+    try {
+      const response = await fetch(meteredUrl);
+      if (response.ok) {
+        const iceServers = await response.json();
+        if (Array.isArray(iceServers) && iceServers.length) {
+          cachedIceConfig = {
+            iceTransportPolicy: process.env.TURN_FORCE_RELAY === 'true' ? 'relay' : 'all',
+            iceServers
+          };
+          cachedIceConfigAt = Date.now();
+          return cachedIceConfig;
+        }
+      }
+    } catch (error) {}
+  }
+
+  const turnUrls = (process.env.TURN_URLS || '')
+    .split(',')
+    .map(value => value.trim())
+    .filter(Boolean);
+  const hasTurnCredentials = turnUrls.length && process.env.TURN_USERNAME && process.env.TURN_CREDENTIAL;
+
+  if (hasTurnCredentials) {
+    fallback.iceTransportPolicy = process.env.TURN_FORCE_RELAY === 'true' ? 'relay' : 'all';
+    fallback.iceServers.push({
+      urls: turnUrls,
+      username: process.env.TURN_USERNAME,
+      credential: process.env.TURN_CREDENTIAL
+    });
+  }
+
+  return fallback;
+}
+
 async function readBody(req) {
   return new Promise((resolve, reject) => {
     let data = '';
@@ -83,28 +137,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { status: 'ok' });
     }
     if (url.pathname === '/api/ice-config' && req.method === 'GET') {
-      const turnUrls = (process.env.TURN_URLS || '')
-        .split(',')
-        .map(value => value.trim())
-        .filter(Boolean);
-      const hasTurnCredentials = turnUrls.length && process.env.TURN_USERNAME && process.env.TURN_CREDENTIAL;
-      const iceServers = [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:global.stun.twilio.com:3478' }
-      ];
-
-      if (hasTurnCredentials) {
-        iceServers.push({
-          urls: turnUrls,
-          username: process.env.TURN_USERNAME,
-          credential: process.env.TURN_CREDENTIAL
-        });
-      }
-
-      return json(res, 200, {
-        iceTransportPolicy: process.env.TURN_FORCE_RELAY === 'true' ? 'relay' : 'all',
-        iceServers
-      });
+      return json(res, 200, await getIceConfig());
     }
     if (url.pathname === '/api/join' && req.method === 'POST') {
       const { id } = await readBody(req); if (!id) return json(res, 400, { error: 'id required' });
