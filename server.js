@@ -10,6 +10,7 @@ let waiting = [];
 const ACTIVE_WINDOW_MS = 12000;
 let cachedIceConfig = null;
 let cachedIceConfigAt = 0;
+const meteredRooms = new Set();
 
 function isActive(id) {
   const client = clients.get(id);
@@ -30,6 +31,29 @@ function getClient(id) {
 function push(client, type, payload = {}) {
   client.events.push({ seq: crypto.randomUUID(), type, ...payload });
   if (client.events.length > 100) client.events.shift();
+}
+
+async function createMeteredRoom(roomName) {
+  if (!process.env.METERED_APP_NAME || !process.env.METERED_SECRET_KEY || meteredRooms.has(roomName)) return;
+  const endpoint = `https://${process.env.METERED_APP_NAME}.metered.live/api/v1/room?secretKey=${encodeURIComponent(process.env.METERED_SECRET_KEY)}`;
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      roomName,
+      privacy: 'public',
+      enableChat: true,
+      enableScreenSharing: false,
+      joinVideoOn: true,
+      joinAudioOn: true,
+      ejectAfterElapsedTimeInSec: 1800,
+      endMeetingAfterNoActivityInSec: 60,
+      deleteOnExp: true,
+      expireUnixSec: Math.floor(Date.now() / 1000) + 3600
+    })
+  });
+  if (!response.ok && response.status !== 409) throw new Error('metered room failed');
+  meteredRooms.add(roomName);
 }
 
 function disconnect(id, requeue = false) {
@@ -59,8 +83,14 @@ function enqueue(id) {
   const partner = getClient(partnerId);
   client.peer = partnerId;
   partner.peer = id;
-  push(partner, 'matched', { peerId: id, initiator: true });
-  push(client, 'matched', { peerId: partnerId, initiator: false });
+  const roomName = `volna-${crypto.randomUUID().replaceAll('-', '').slice(0, 18)}`;
+  const roomURL = process.env.METERED_APP_NAME ? `https://${process.env.METERED_APP_NAME}.metered.live/${roomName}` : '';
+  createMeteredRoom(roomName)
+    .catch(() => {})
+    .finally(() => {
+      push(partner, 'matched', { peerId: id, initiator: true, roomName, roomURL });
+      push(client, 'matched', { peerId: partnerId, initiator: false, roomName, roomURL });
+    });
 }
 
 function json(res, status, body) {
