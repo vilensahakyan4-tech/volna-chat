@@ -71,6 +71,30 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/health' && req.method === 'GET') {
       return json(res, 200, { status: 'ok' });
     }
+    if (url.pathname === '/api/ice-config' && req.method === 'GET') {
+      const turnUrls = (process.env.TURN_URLS || '')
+        .split(',')
+        .map(value => value.trim())
+        .filter(Boolean);
+      const hasTurnCredentials = turnUrls.length && process.env.TURN_USERNAME && process.env.TURN_CREDENTIAL;
+      const iceServers = [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:global.stun.twilio.com:3478' }
+      ];
+
+      if (hasTurnCredentials) {
+        iceServers.push({
+          urls: turnUrls,
+          username: process.env.TURN_USERNAME,
+          credential: process.env.TURN_CREDENTIAL
+        });
+      }
+
+      return json(res, 200, {
+        iceTransportPolicy: process.env.TURN_FORCE_RELAY === 'true' ? 'relay' : 'all',
+        iceServers
+      });
+    }
     if (url.pathname === '/api/join' && req.method === 'POST') {
       const { id } = await readBody(req); if (!id) return json(res, 400, { error: 'id required' });
       enqueue(id); return json(res, 200, { ok: true });
