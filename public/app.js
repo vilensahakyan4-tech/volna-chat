@@ -86,16 +86,8 @@ function setLive() {
 function openMeteredRoom(roomURL) {
   closePeer();
   setConnecting();
-  const frame = document.createElement('iframe');
-  frame.id = 'meteredFrame';
-  frame.className = 'metered-frame';
-  frame.allow = 'camera; microphone; autoplay; fullscreen; display-capture';
-  frame.referrerPolicy = 'strict-origin-when-cross-origin';
-  frame.src = roomURL;
-  $('remoteVideo')?.replaceWith(frame);
-  meteredFrame = frame;
-  setLive();
-  addMessage('Видео-комната открыта. Разрешите камеру и микрофон внутри звонка.');
+  addMessage('Собеседник найден. Открываем рабочую видео-комнату автоматически...');
+  window.location.href = roomURL;
 }
 
 function closeMeteredRoom() {
