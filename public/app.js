@@ -88,6 +88,10 @@ function setConnectionProblem() {
 
 async function start() {
   try {
+    stopped = false;
+    closePeer();
+    clearTimeout(pollTimer);
+    await api('/api/leave', { id }).catch(() => {});
     stream = await navigator.mediaDevices.getUserMedia({
       video: { width: { ideal: 1280 }, height: { ideal: 720 } },
       audio: true
@@ -95,7 +99,6 @@ async function start() {
     $('localVideo').srcObject = stream;
     $('intro').classList.add('hidden');
     $('chat').classList.remove('hidden');
-    stopped = false;
     setSearching();
     await loadIceConfig();
     await api('/api/join', { id });
