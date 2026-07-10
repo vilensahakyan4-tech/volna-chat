@@ -7,6 +7,16 @@ const PORT = process.env.PORT || 3000;
 const PUBLIC = path.join(__dirname, 'public');
 const clients = new Map();
 let waiting = [];
+const ACTIVE_WINDOW_MS = 12000;
+
+function isActive(id) {
+  const client = clients.get(id);
+  return Boolean(client && Date.now() - client.touched < ACTIVE_WINDOW_MS);
+}
+
+function cleanWaiting() {
+  waiting = waiting.filter((id, index, list) => list.indexOf(id) === index && isActive(id));
+}
 
 function getClient(id) {
   if (!clients.has(id)) clients.set(id, { id, peer: null, events: [], touched: Date.now() });
@@ -35,8 +45,9 @@ function disconnect(id, requeue = false) {
 
 function enqueue(id) {
   const client = getClient(id);
+  cleanWaiting();
   if (client.peer || waiting.includes(id)) return;
-  const partnerId = waiting.find(other => other !== id && clients.has(other));
+  const partnerId = waiting.find(other => other !== id && isActive(other));
   if (!partnerId) {
     waiting.push(id);
     push(client, 'searching');
@@ -100,7 +111,9 @@ const server = http.createServer(async (req, res) => {
       enqueue(id); return json(res, 200, { ok: true });
     }
     if (url.pathname === '/api/events' && req.method === 'GET') {
-      const id = url.searchParams.get('id'); const client = getClient(id);
+      const id = url.searchParams.get('id'); if (!id) return json(res, 400, { error: 'id required' });
+      const client = getClient(id);
+      if (!client.peer && !waiting.includes(id)) enqueue(id);
       const events = client.events.splice(0); return json(res, 200, { events });
     }
     if (url.pathname === '/api/signal' && req.method === 'POST') {
@@ -124,6 +137,7 @@ const server = http.createServer(async (req, res) => {
 setInterval(() => {
   const stale = Date.now() - 120000;
   for (const [id, client] of clients) if (client.touched < stale) { disconnect(id); clients.delete(id); }
+  cleanWaiting();
 }, 30000).unref();
 
 server.listen(PORT, '0.0.0.0', () => console.log(`VOLNA запущена: http://localhost:${PORT}`));
