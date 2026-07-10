@@ -115,9 +115,31 @@ async function getIceConfig() {
       username: process.env.TURN_USERNAME,
       credential: process.env.TURN_CREDENTIAL
     });
+    return fallback;
   }
 
-  return fallback;
+  const staticTurnSecret = process.env.STATIC_TURN_SECRET || 'openrelayprojectsecret';
+  const staticTurnHost = process.env.STATIC_TURN_HOST || 'staticauth.openrelay.metered.ca';
+  const username = String(Math.floor(Date.now() / 1000) + 6 * 60 * 60);
+  const credential = crypto.createHmac('sha1', staticTurnSecret).update(username).digest('base64');
+
+  return {
+    iceTransportPolicy: 'relay',
+    iceServers: [
+      { urls: `stun:${staticTurnHost}:80` },
+      {
+        urls: [
+          `turn:${staticTurnHost}:80`,
+          `turn:${staticTurnHost}:80?transport=tcp`,
+          `turn:${staticTurnHost}:443`,
+          `turn:${staticTurnHost}:443?transport=tcp`,
+          `turns:${staticTurnHost}:443?transport=tcp`
+        ],
+        username,
+        credential
+      }
+    ]
+  };
 }
 
 async function readBody(req) {
