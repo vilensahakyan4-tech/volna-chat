@@ -7,6 +7,7 @@ let peerId;
 let dataChannel;
 let pollTimer;
 let connectionWatchdog;
+let meteredFrame;
 let pendingCandidates = [];
 let micOn = true;
 let camOn = true;
@@ -60,7 +61,9 @@ function setSearching() {
   updateOverlay('Ищем собеседника', 'Откройте эту же ссылку на другом устройстве и нажмите старт.');
   $('statusText').textContent = 'ПОИСК';
   $('chatTitle').textContent = 'Ищем собеседника';
-  $('remoteVideo').srcObject = null;
+  closeMeteredRoom();
+  const remoteVideo = $('remoteVideo');
+  if (remoteVideo) remoteVideo.srcObject = null;
 }
 
 function setConnecting() {
@@ -80,6 +83,31 @@ function setLive() {
   $('chatTitle').textContent = 'Можно говорить';
 }
 
+function openMeteredRoom(roomURL) {
+  closePeer();
+  setConnecting();
+  const frame = document.createElement('iframe');
+  frame.id = 'meteredFrame';
+  frame.className = 'metered-frame';
+  frame.allow = 'camera; microphone; autoplay; fullscreen; display-capture';
+  frame.referrerPolicy = 'strict-origin-when-cross-origin';
+  frame.src = roomURL;
+  $('remoteVideo')?.replaceWith(frame);
+  meteredFrame = frame;
+  setLive();
+  addMessage('Видео-комната открыта. Разрешите камеру и микрофон внутри звонка.');
+}
+
+function closeMeteredRoom() {
+  if (!meteredFrame) return;
+  const video = document.createElement('video');
+  video.id = 'remoteVideo';
+  video.autoplay = true;
+  video.playsInline = true;
+  meteredFrame.replaceWith(video);
+  meteredFrame = null;
+}
+
 function setConnectionProblem() {
   updateOverlay('Видео не пробилось', 'Нажмите “Следующий” или обновите страницу на двух устройствах.');
   $('statusText').textContent = 'НЕТ СВЯЗИ';
@@ -90,21 +118,19 @@ async function start() {
   try {
     stopped = false;
     closePeer();
+    closeMeteredRoom();
     clearTimeout(pollTimer);
     await api('/api/leave', { id }).catch(() => {});
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: { width: { ideal: 1280 }, height: { ideal: 720 } },
-      audio: true
-    });
-    $('localVideo').srcObject = stream;
     $('intro').classList.add('hidden');
     $('chat').classList.remove('hidden');
+    $('messageForm').classList.add('hidden');
+    $('localVideo').closest('.local-wrap').classList.add('hidden');
     setSearching();
     await loadIceConfig();
     await api('/api/join', { id });
     poll();
   } catch (e) {
-    toast('Разрешите доступ к камере и микрофону');
+    toast('Не удалось начать поиск. Обновите страницу и попробуйте снова.');
   }
 }
 
@@ -122,6 +148,10 @@ async function poll() {
 async function handleEvent(event) {
   if (event.type === 'matched') {
     peerId = event.peerId;
+    if (event.roomURL) {
+      openMeteredRoom(event.roomURL);
+      return;
+    }
     setConnecting();
     await createPeer(event.initiator);
   }
@@ -211,6 +241,7 @@ function closePeer() {
 
 async function next() {
   closePeer();
+  closeMeteredRoom();
   setSearching();
   await api('/api/next', { id });
 }
@@ -220,7 +251,9 @@ async function stop() {
   clearTimeout(pollTimer);
   await api('/api/leave', { id });
   closePeer();
+  closeMeteredRoom();
   stream?.getTracks().forEach(t => t.stop());
+  stream = null;
   $('chat').classList.add('hidden');
   $('intro').classList.remove('hidden');
   setSearching();
