@@ -87,7 +87,7 @@ function openMeteredRoom(roomURL) {
   closePeer();
   setConnecting();
   addMessage('Собеседник найден. Открываем рабочую видео-комнату автоматически...');
-  window.location.href = roomURL;
+  window.location.href = `/call.html?room=${encodeURIComponent(roomURL)}`;
 }
 
 function closeMeteredRoom() {
